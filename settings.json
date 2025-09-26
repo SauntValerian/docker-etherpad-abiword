@@ -36,7 +36,7 @@
   "allowUnknownFileEnds": true,
   "requireAuthentication": false,
   "requireAuthorization": false,
-  "trustProxy": false,
+  "trustProxy": true,
   "cookie": {
     "sameSite": "Lax"
   },
@@ -72,5 +72,11 @@
     ]
   },
   "logLevel": "INFO",
-  "customLocaleStrings": {}
+  "customLocaleStrings": {},
+  "exportHtml": false,
+  "exportEtherpad": false,
+  "exportTxt": true,
+  "exportOdt": false,
+  "exportPdf": true,
+  "exportDoc": true
 }
