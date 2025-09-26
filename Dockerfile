@@ -15,7 +15,7 @@ RUN apk update && \
 USER etherpad
 
 # Copy custom settings if you have them (optional)
-# COPY settings.json /opt/etherpad-lite/settings.json
+COPY settings.json /opt/etherpad-lite/settings.json
 
 # Expose the default Etherpad port
 EXPOSE 9001
