@@ -1,15 +1,21 @@
-# Build Etherpad with Abiword support using official method
-FROM etherpad/etherpad:latest
+# Build Etherpad with Abiword using the official method
+FROM alpine/git as source
+RUN git clone https://github.com/ether/etherpad-lite.git /etherpad-lite
+
+FROM node:18-alpine
+WORKDIR /opt/etherpad-lite
+
+# Copy source from git
+COPY --from=source /etherpad-lite .
+
+# Install system dependencies for building
+RUN apk add --no-cache shadow bash
 
 # Set build argument to install Abiword
 ARG INSTALL_ABIWORD=true
 
-# Switch to root for installation
-USER root
-
-# Install Abiword using the official Etherpad method
+# Install Abiword if requested
 RUN if [ "$INSTALL_ABIWORD" = "true" ]; then \
-    apk update && \
     apk add --no-cache \
     abiword \
     abiword-plugin-command \
@@ -21,19 +27,29 @@ RUN if [ "$INSTALL_ABIWORD" = "true" ]; then \
     && fc-cache -fv; \
 fi
 
-# Create startup script that runs Xvfb in background
-RUN echo '#!/bin/sh' > /usr/local/bin/start-etherpad.sh && \
-    echo 'export DISPLAY=:99' >> /usr/local/bin/start-etherpad.sh && \
-    echo 'Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &' >> /usr/local/bin/start-etherpad.sh && \
-    echo 'sleep 2' >> /usr/local/bin/start-etherpad.sh && \
-    echo 'cd /opt/etherpad-lite && node src/node/server.js' >> /usr/local/bin/start-etherpad.sh && \
-    chmod +x /usr/local/bin/start-etherpad.sh
+# Create etherpad user
+RUN groupadd --system etherpad && \
+    useradd --system --gid etherpad --create-home etherpad
 
-# Switch back to etherpad user
+# Set ownership
+RUN chown -R etherpad:etherpad /opt/etherpad-lite
+
+# Switch to etherpad user and install dependencies
 USER etherpad
+RUN npm ci --only=production
 
-# Expose port
+# Create X11 startup script
+USER root
+RUN echo '#!/bin/bash' > /start-etherpad.sh && \
+    echo 'export DISPLAY=:99' >> /start-etherpad.sh && \
+    echo 'Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &' >> /start-etherpad.sh && \
+    echo 'sleep 3' >> /start-etherpad.sh && \
+    echo 'exec su etherpad -c "cd /opt/etherpad-lite && node src/node/server.js"' >> /start-etherpad.sh && \
+    chmod +x /start-etherpad.sh
+
+USER etherpad
+WORKDIR /opt/etherpad-lite
+
 EXPOSE 9001
 
-# Use our startup script
-CMD ["/usr/local/bin/start-etherpad.sh"]
+CMD ["/start-etherpad.sh"]
