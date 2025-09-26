@@ -8,11 +8,13 @@ ARG INSTALL_SOFFICE=true
 # Install LibreOffice for document exports  
 RUN apk add --no-cache \
     libreoffice \
+    openjdk11-jre \
     ttf-liberation \
     ttf-dejavu \
     fontconfig \
     dbus \
     && fc-cache -fv
+
 
 USER etherpad
 
