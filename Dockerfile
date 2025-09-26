@@ -20,5 +20,4 @@ USER etherpad
 # Expose the default Etherpad port
 EXPOSE 9001
 
-# Use the default Etherpad startup command
-CMD ["node", "node_modules/ep_etherpad-lite/node/server.js"]
+# No CMD needed - use the base image's default startup command
