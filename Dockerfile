@@ -1,55 +1,59 @@
-# Build Etherpad with Abiword using the official method
+# Build Etherpad with LibreOffice using official method
+
 FROM alpine/git as source
-RUN git clone https://github.com/ether/etherpad-lite.git /etherpad-lite
+RUN git clone --depth 1 https://github.com/ether/etherpad-lite.git /etherpad-lite
 
 FROM node:18-alpine
 WORKDIR /opt/etherpad-lite
 
-# Copy source from git
+# Copy source from git  
 COPY --from=source /etherpad-lite .
 
-# Install system dependencies for building
+# Install system dependencies
 RUN apk add --no-cache shadow bash
 
-# Set build argument to install Abiword
-ARG INSTALL_ABIWORD=true
+# Set build argument for LibreOffice (official method)
+ARG INSTALL_SOFFICE=true
 
-# Install Abiword if requested
-RUN if [ "$INSTALL_ABIWORD" = "true" ]; then \
+# Install LibreOffice using official Etherpad build process
+RUN if [ "$INSTALL_SOFFICE" = "true" ]; then \
     apk add --no-cache \
-    abiword \
-    abiword-plugin-command \
+    libreoffice \
     ttf-liberation \
     ttf-dejavu \
-    xvfb \
-    dbus \
     fontconfig \
+    dbus \
     && fc-cache -fv; \
 fi
 
-# Create etherpad user
+# Create etherpad user (following official Dockerfile)
 RUN groupadd --system etherpad && \
     useradd --system --gid etherpad --create-home etherpad
 
 # Set ownership
 RUN chown -R etherpad:etherpad /opt/etherpad-lite
 
-# Switch to etherpad user and install dependencies
+# Install Node.js dependencies
 USER etherpad
 RUN npm ci --only=production
 
-# Create X11 startup script
+# Switch back to root for final setup
 USER root
-RUN echo '#!/bin/bash' > /start-etherpad.sh && \
-    echo 'export DISPLAY=:99' >> /start-etherpad.sh && \
-    echo 'Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &' >> /start-etherpad.sh && \
-    echo 'sleep 3' >> /start-etherpad.sh && \
-    echo 'exec su etherpad -c "cd /opt/etherpad-lite && node src/node/server.js"' >> /start-etherpad.sh && \
-    chmod +x /start-etherpad.sh
 
+# Copy the official settings template
+RUN if [ -f settings.json.docker ]; then cp settings.json.docker settings.json; fi
+
+# Set final user and working directory
 USER etherpad
 WORKDIR /opt/etherpad-lite
 
 EXPOSE 9001
 
-CMD ["/start-etherpad.sh"]
+# Use the standard Etherpad startup
+CMD ["node", "src/node/server.js"]
+
+# Alternative: Simpler approach using official image
+# FROM etherpad/etherpad:latest
+# USER root
+# RUN apk add --no-cache libreoffice ttf-liberation ttf-dejavu fontconfig dbus && fc-cache -fv
+# USER etherpad
