@@ -14,20 +14,27 @@ RUN apk update && \
     xauth \
     dbus \
     fontconfig \
+    supervisor \
     && fc-cache -fv
 
-# Create headless Abiword wrapper script
-RUN echo '#!/bin/sh' > /usr/local/bin/abiword-headless && \
-    echo 'export DISPLAY=:99' >> /usr/local/bin/abiword-headless && \
-    echo 'Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &' >> /usr/local/bin/abiword-headless && \
-    echo 'XVFB_PID=$!' >> /usr/local/bin/abiword-headless && \
-    echo 'sleep 2' >> /usr/local/bin/abiword-headless && \
-    echo 'abiword "$@"' >> /usr/local/bin/abiword-headless && \
-    echo 'kill $XVFB_PID' >> /usr/local/bin/abiword-headless && \
-    chmod +x /usr/local/bin/abiword-headless
-
-# Switch back to etherpad user
-USER etherpad
+# Create supervisor config to run Xvfb
+RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:xvfb]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:etherpad]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=node src/node/server.js' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'directory=/opt/etherpad-lite' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=etherpad' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'environment=DISPLAY=":99"' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Expose Etherpad port
 EXPOSE 9001
+
+# Start supervisor to manage both Xvfb and Etherpad
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
